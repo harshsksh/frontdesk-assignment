@@ -1,0 +1,77 @@
+.knowledge-base {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+.knowledge-base.empty {
+  text-align: center;
+  color: #999;
+  padding: 4rem 2rem;
+}
+
+.knowledge-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #eee;
+}
+
+.knowledge-header h2 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.knowledge-subtitle {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.knowledge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.knowledge-entry {
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
+}
+
+.entry-question {
+  margin-bottom: 1rem;
+  color: #555;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.entry-question strong {
+  color: #667eea;
+  margin-right: 0.5rem;
+}
+
+.entry-answer {
+  margin-bottom: 1rem;
+  color: #333;
+  font-size: 1rem;
+  line-height: 1.6;
+  padding-left: 1rem;
+  border-left: 2px solid #ddd;
+}
+
+.entry-answer strong {
+  color: #4caf50;
+  margin-right: 0.5rem;
+}
+
+.entry-meta {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.85rem;
+  color: #999;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e0e0e0;
+}
+
