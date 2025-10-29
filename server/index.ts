@@ -13,11 +13,11 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Initialize database
-const db = initializeDatabase();
-const customerModel = new CustomerModel(db);
-const helpRequestModel = new HelpRequestModel(db);
-const knowledgeBaseModel = new KnowledgeBaseModel(db);
+// Initialize database (file-based storage, no SQLite needed)
+const storage = initializeDatabase();
+const customerModel = new CustomerModel(storage);
+const helpRequestModel = new HelpRequestModel(storage);
+const knowledgeBaseModel = new KnowledgeBaseModel(storage);
 
 // Initialize AI agent
 const aiAgent = new AIAgent(customerModel, helpRequestModel, knowledgeBaseModel);

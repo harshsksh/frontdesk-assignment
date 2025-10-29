@@ -1,66 +1,53 @@
-import Database from 'better-sqlite3';
 import { HelpRequest, KnowledgeEntry, Customer, RequestStatus } from '../../shared/types';
+import { FileStorage } from './fileStorage';
 
 export class CustomerModel {
-  constructor(private db: Database.Database) {}
+  constructor(private storage: FileStorage) {}
   
   createOrGet(phone: string, name: string): Customer {
-    const existing = this.db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone) as any;
+    const existing = this.storage.getCustomerByPhone(phone);
     if (existing) {
       // Update last contacted
-      this.db.prepare('UPDATE customers SET last_contacted_at = ? WHERE id = ?')
-        .run(new Date().toISOString(), existing.id);
-      return {
-        id: existing.id,
-        phone: existing.phone,
-        name: existing.name,
-        createdAt: existing.created_at,
-        lastContactedAt: existing.last_contacted_at,
+      const updated = {
+        ...existing,
+        lastContactedAt: new Date().toISOString(),
       };
+      this.storage.createOrUpdateCustomer(updated);
+      return updated;
     }
     
     const id = require('uuid').v4();
     const now = new Date().toISOString();
-    this.db.prepare(`
-      INSERT INTO customers (id, phone, name, created_at, last_contacted_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, phone, name, now, now);
-    
-    return { id, phone, name, createdAt: now, lastContactedAt: now };
+    const customer: Customer = {
+      id,
+      phone,
+      name,
+      createdAt: now,
+      lastContactedAt: now,
+    };
+    this.storage.createOrUpdateCustomer(customer);
+    return customer;
   }
   
   getById(id: string): Customer | null {
-    const row = this.db.prepare('SELECT * FROM customers WHERE id = ?').get(id) as any;
-    if (!row) return null;
-    return {
-      id: row.id,
-      phone: row.phone,
-      name: row.name,
-      createdAt: row.created_at,
-      lastContactedAt: row.last_contacted_at,
-    };
+    return this.storage.getCustomerById(id);
   }
   
   getByPhone(phone: string): Customer | null {
-    const row = this.db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone) as any;
-    if (!row) return null;
-    return {
-      id: row.id,
-      phone: row.phone,
-      name: row.name,
-      createdAt: row.created_at,
-      lastContactedAt: row.last_contacted_at,
-    };
+    return this.storage.getCustomerByPhone(phone);
   }
   
   updateLastContacted(phone: string): void {
-    this.db.prepare('UPDATE customers SET last_contacted_at = ? WHERE phone = ?')
-      .run(new Date().toISOString(), phone);
+    const customer = this.storage.getCustomerByPhone(phone);
+    if (customer) {
+      customer.lastContactedAt = new Date().toISOString();
+      this.storage.createOrUpdateCustomer(customer);
+    }
   }
 }
 
 export class HelpRequestModel {
-  constructor(private db: Database.Database) {}
+  constructor(private storage: FileStorage) {}
   
   create(
     customerId: string,
@@ -73,13 +60,7 @@ export class HelpRequestModel {
     // Set timeout to 5 minutes from now
     const timeoutAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     
-    this.db.prepare(`
-      INSERT INTO help_requests 
-        (id, customer_id, customer_phone, customer_name, question, status, created_at, timeout_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, customerId, customerPhone, customerName, question, RequestStatus.PENDING, now, timeoutAt);
-    
-    return {
+    const request: HelpRequest = {
       id,
       customerId,
       customerPhone,
@@ -92,82 +73,63 @@ export class HelpRequestModel {
       supervisorId: null,
       timeoutAt,
     };
+    
+    this.storage.createRequest(request);
+    return request;
   }
   
   getById(id: string): HelpRequest | null {
-    const row = this.db.prepare('SELECT * FROM help_requests WHERE id = ?').get(id) as any;
-    if (!row) return null;
-    return this.rowToRequest(row);
+    return this.storage.getRequestById(id);
   }
   
   getPending(): HelpRequest[] {
-    const rows = this.db.prepare(`
-      SELECT * FROM help_requests 
-      WHERE status = ? 
-      ORDER BY created_at ASC
-    `).all(RequestStatus.PENDING) as any[];
-    
-    return rows.map(r => this.rowToRequest(r));
+    return this.storage.getPendingRequests();
   }
   
   getAll(limit = 100): HelpRequest[] {
-    const rows = this.db.prepare(`
-      SELECT * FROM help_requests 
-      ORDER BY created_at DESC 
-      LIMIT ?
-    `).all(limit) as any[];
-    
-    return rows.map(r => this.rowToRequest(r));
+    return this.storage.getAllRequests(limit);
   }
   
   resolve(id: string, supervisorAnswer: string, supervisorId: string): HelpRequest | null {
-    const now = new Date().toISOString();
-    const result = this.db.prepare(`
-      UPDATE help_requests 
-      SET status = ?, resolved_at = ?, supervisor_answer = ?, supervisor_id = ?
-      WHERE id = ?
-    `).run(RequestStatus.RESOLVED, now, supervisorAnswer, supervisorId, id);
+    const request = this.storage.getRequestById(id);
+    if (!request) return null;
     
-    if (result.changes === 0) return null;
-    return this.getById(id);
+    const now = new Date().toISOString();
+    const updated: HelpRequest = {
+      ...request,
+      status: RequestStatus.RESOLVED,
+      resolvedAt: now,
+      supervisorAnswer,
+      supervisorId,
+    };
+    
+    this.storage.updateRequest(updated);
+    return updated;
   }
   
   markUnresolved(id: string): HelpRequest | null {
-    const now = new Date().toISOString();
-    const result = this.db.prepare(`
-      UPDATE help_requests 
-      SET status = ?, resolved_at = ?
-      WHERE id = ?
-    `).run(RequestStatus.UNRESOLVED, now, id);
+    const request = this.storage.getRequestById(id);
+    if (!request) return null;
     
-    if (result.changes === 0) return null;
-    return this.getById(id);
-  }
-  
-  private rowToRequest(row: any): HelpRequest {
-    return {
-      id: row.id,
-      customerId: row.customer_id,
-      customerPhone: row.customer_phone,
-      customerName: row.customer_name,
-      question: row.question,
-      status: row.status as RequestStatus,
-      createdAt: row.created_at,
-      resolvedAt: row.resolved_at,
-      supervisorAnswer: row.supervisor_answer,
-      supervisorId: row.supervisor_id,
-      timeoutAt: row.timeout_at,
+    const now = new Date().toISOString();
+    const updated: HelpRequest = {
+      ...request,
+      status: RequestStatus.UNRESOLVED,
+      resolvedAt: now,
     };
+    
+    this.storage.updateRequest(updated);
+    return updated;
   }
 }
 
 export class KnowledgeBaseModel {
-  constructor(private db: Database.Database) {}
+  constructor(private storage: FileStorage) {}
   
   findAnswer(question: string): KnowledgeEntry | null {
     // Simple keyword matching - in production, use semantic search or embeddings
     const questionLower = question.toLowerCase().trim();
-    const entries = this.db.prepare('SELECT * FROM knowledge_base').all() as any[];
+    const entries = this.storage.getAllKnowledgeEntries();
     
     for (const entry of entries) {
       const entryLower = entry.question.toLowerCase().trim();
@@ -179,7 +141,7 @@ export class KnowledgeBaseModel {
       if (matchCount >= Math.min(2, entryWords.length * 0.5)) {
         // Update usage stats
         this.incrementUsage(entry.id);
-        return this.rowToEntry(entry);
+        return entry;
       }
     }
     
@@ -190,12 +152,7 @@ export class KnowledgeBaseModel {
     const id = require('uuid').v4();
     const now = new Date().toISOString();
     
-    this.db.prepare(`
-      INSERT INTO knowledge_base (id, question, answer, source_request_id, created_at, usage_count)
-      VALUES (?, ?, ?, ?, ?, 0)
-    `).run(id, question, answer, sourceRequestId, now);
-    
-    return {
+    const entry: KnowledgeEntry = {
       id,
       question,
       answer,
@@ -204,32 +161,25 @@ export class KnowledgeBaseModel {
       lastUsedAt: null,
       usageCount: 0,
     };
+    
+    this.storage.createKnowledgeEntry(entry);
+    return entry;
   }
   
   getAll(): KnowledgeEntry[] {
-    const rows = this.db.prepare('SELECT * FROM knowledge_base ORDER BY created_at DESC').all() as any[];
-    return rows.map(r => this.rowToEntry(r));
+    return this.storage.getAllKnowledgeEntries();
   }
   
   incrementUsage(id: string): void {
-    const now = new Date().toISOString();
-    this.db.prepare(`
-      UPDATE knowledge_base 
-      SET usage_count = usage_count + 1, last_used_at = ?
-      WHERE id = ?
-    `).run(now, id);
-  }
-  
-  private rowToEntry(row: any): KnowledgeEntry {
-    return {
-      id: row.id,
-      question: row.question,
-      answer: row.answer,
-      sourceRequestId: row.source_request_id,
-      createdAt: row.created_at,
-      lastUsedAt: row.last_used_at,
-      usageCount: row.usage_count,
-    };
+    const entry = this.storage.getAllKnowledgeEntries().find(e => e.id === id);
+    if (entry) {
+      const now = new Date().toISOString();
+      const updated: KnowledgeEntry = {
+        ...entry,
+        usageCount: entry.usageCount + 1,
+        lastUsedAt: now,
+      };
+      this.storage.updateKnowledgeEntry(updated);
+    }
   }
 }
-
