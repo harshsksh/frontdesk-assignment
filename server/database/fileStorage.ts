@@ -10,7 +10,7 @@ interface DatabaseData {
 
 export class FileStorage {
   private dbPath: string;
-  private data: DatabaseData;
+  private data!: DatabaseData;
 
   constructor(dbPath?: string) {
     this.dbPath = dbPath || path.join(process.cwd(), 'frontdesk-data.json');
