@@ -1,5 +1,5 @@
 import React from 'react';
-import { KnowledgeEntry } from '../../../shared/types';
+import { KnowledgeEntry } from '@shared/types';
 import './KnowledgeBase.css';
 
 interface KnowledgeBaseProps {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HelpRequest } from '../../../shared/types';
+import { HelpRequest } from '@shared/types';
 import './RequestDetail.css';
 
 interface RequestDetailProps {

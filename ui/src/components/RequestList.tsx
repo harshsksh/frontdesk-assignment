@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpRequest } from '../../../shared/types';
+import { HelpRequest } from '@shared/types';
 import './RequestList.css';
 
 interface RequestListProps {

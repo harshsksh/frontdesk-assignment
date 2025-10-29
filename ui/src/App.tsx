@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HelpRequest, KnowledgeEntry } from '../../shared/types';
+import { HelpRequest, KnowledgeEntry } from '@shared/types';
 import RequestList from './components/RequestList';
 import RequestDetail from './components/RequestDetail';
 import KnowledgeBase from './components/KnowledgeBase';
